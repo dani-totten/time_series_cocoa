@@ -27,9 +27,10 @@ The data for July 2020 cocoa futures contracts came from Yahoo! Finance and incl
 
 1) Daily adjusted closing price
 Looking at the daily adjusted closing price shows day-to-day changes
-
+![](https://github.com/dani-totten/time_series_cocoa/blob/main/daily_adj_closing_price.png)
 2) Log returns
 Log returns helps to show volatility in the data
-
+![](https://github.com/dani-totten/time_series_cocoa/blob/main/sqd_log_ret.png)
 3) Monthly average closing price
 Taking the monthly average closing price can help to show long-term trends that may not be clear in noisy daily data. Additionally, I was interested in looking at the impact of El Nino and La Nina, which effect oceanic temperature and weather patterns for a period, on cocoa prices by impacting production
+![](https://github.com/dani-totten/time_series_cocoa/blob/main/monthly_avg_closing.png)

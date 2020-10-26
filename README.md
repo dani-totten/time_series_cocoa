@@ -44,6 +44,8 @@ No model did a particularly good job of forecasting futures pricing. A first dif
 
 ![](https://github.com/dani-totten/time_series_cocoa/blob/main/forecast_daily.png)
 
+*Forecasted values for the adjusted daily closing price with an exponential smoother (green), random walk (pink) and linear regression + ARMA(2,1) (yellow).*
+
 # Monthly average closing price
 
 Taking the monthly average closing price can help to show long-term trends that may not be clear in noisy daily data. Additionally, I was interested in looking at the impact of El Nino and La Nina, which effect oceanic temperature and weather patterns for a period, on cocoa prices by impacting production. El Niño and la Niña data were added to the monthly data based on research that the temperamental cocoa plant can be significantly impacted by weather changes. El Niño  events are marked by warmer water in the Pacific and La Niña events are marked by cooler water in the Pacific. The data came from The data came from Golden Gate Weather Services and is based on the Oceanic Nino Index to classify periods of El Niño  and La Niña weather events into weak (1), moderate (2), strong (3) and very strong (4). Periods without these events are marked with a 0.  This data was added to the monthly data as an ordered factor with El Niño  and La Niña considered as separate variables than cannot occur concurrently.
@@ -59,3 +61,4 @@ The ARIMA(1,1,0) aka first-differenced autoregressive model adequately accounted
 
 ![](https://github.com/dani-totten/time_series_cocoa/blob/main/monthly_forecast_edit.png)
 
+*This plot shows the forecasted neural network against the observed mean adjusted closing price during the testing period for 3 cases: no weather patterns (orange), El Niño (pink) and la Niña (teal)*

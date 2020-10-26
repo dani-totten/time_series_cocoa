@@ -17,12 +17,12 @@ These three findings together mean that it is difficult to accurately predict th
 
 |Model	|RMSE-train	|RMSE-test	|Passes model selection|
 |:---	|:---		|:---		|:---		|
-|Monthly|	ARIMA(1,1,0)	|135|499 Yes|
-|Monthly	Dynamic Regression + ARIMA(1,1,0) |134|518|Yes|
-|Monthly	Neural Network	|107|310|Yes|
-|Daily	Random walk	|43|263	|Yes|
-|Daily	Dynamic Regression + ARIMA	|43|357|Yes|
-|Daily	Exponential Smoothing|52|177|No|
+|Monthly ARIMA(1,1,0)	|135|499 Yes|
+|Monthly Dynamic Regression + ARIMA(1,1,0) |134|518|Yes|
+|Monthly Neural Network	|107|310|Yes|
+|Daily Random walk	|43|263	|Yes|
+|Daily Dynamic Regression + ARIMA	|43|357|Yes|
+|Daily Exponential Smoothing|52|177|No|
 
 
 # Data

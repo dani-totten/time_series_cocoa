@@ -14,7 +14,7 @@ These three findings together mean that it is difficult to accurately predict th
 
 |Model	|RMSE-train	|RMSE-test	|Passes model selection|
 |:---	|:---		|:---		|:---		|
-|Monthly	ARIMA(1,1,0)	135	       	  499	         Yes
+|Monthly|	ARIMA(1,1,0)	|135	       	  |499	        | Yes|
 |Monthly	Dynamic Reg	134	          518	         Yes
 |Monthly	Neural Network	107	          310	         Yes				
 |Daily	Random walk	        43	          263	         Yes

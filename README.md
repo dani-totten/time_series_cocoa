@@ -26,6 +26,7 @@ These three findings together mean that it is difficult to accurately predict th
 The data for July 2020 cocoa futures contracts came from Yahoo! Finance and included data from January 3, 2010 through February 26th, 2020. Only data after 2010 was ultimately used. Data only came from active trading days, of which there are approximately 250 per year because trading does not occur on weekends or holidays. Data cleansing was performed, and no anomolies were detected.
 
 1) Daily adjusted closing price
+
 Looking at the daily adjusted closing price shows day-to-day changes
 ![](https://github.com/dani-totten/time_series_cocoa/blob/main/daily_adj_closing_price.png)
 2) Log returns

@@ -12,14 +12,14 @@
 
 These three findings together mean that it is difficult to accurately predict the future price of cocoa futures because the price at any given time is highly dependently on the price in the period before. Furthermore, the day to day change is more or less random but large changes, either positive or negative, are likely to follow large changes. Therefore, it can be difficult to try to determine if a price increase will be followed by additional price increases, or a large drop. This makes purchasing futures at a time of change difficult. However, since El Niño and La Niña can impact cocoa prices by impacting crop yields and forecasts for these patterns are often made far in advance, it could be prudent perform further research into purchasing cocoa futures when a strong El Niño effect is likely because the price of cocoa may rise as a consequence of warmer weather and stronger storms in equatorial regions.
 
-Model			RMSE-train	RMSE-test	Passes model selection
-Monthly	ARIMA(1,1,0)	135	       	  499	         Yes
-Monthly	Dynamic Reg	134	          518	         Yes
-Monthly	Neural Network	107	          310	         Yes
-				
-Daily	Random walk	        43	          263	         Yes
-Daily	Reg + ARIMA	        43	          357	         Yes
-Daily	Exp Smoothing 	    52	          177	         No
+|Model	|RMSE-train	|RMSE-test	|Passes model selection|
+|:---	|:---		|:---		|:---		|
+|Monthly	ARIMA(1,1,0)	135	       	  499	         Yes
+|Monthly	Dynamic Reg	134	          518	         Yes
+|Monthly	Neural Network	107	          310	         Yes				
+|Daily	Random walk	        43	          263	         Yes
+|Daily	Reg + ARIMA	        43	          357	         Yes
+|Daily	Exp Smoothing 	    52	          177	         No
 
 
 # Data - 3 ways

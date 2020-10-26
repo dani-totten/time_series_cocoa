@@ -1,0 +1,205 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+---
+title: "Untitled"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(forecast)
+library(tidyverse)
+library(fBasics)
+library(fGarch)
+library(TSA)
+library(urca)
+```
+Load and prep data
+```{r}
+CC_F <- data.frame(read_csv("~/Downloads/CC=F.csv"))
+a.close <- data.frame(date=CC_F$Date, adj.close=as.numeric(CC_F[,6]))
+a.close <- a.close[complete.cases(a.close),]
+
+# this is too much data, cut some off to prevent overfitting
+a.close <- a.close %>% dplyr::filter(date>'2010-02-26')
+
+# returns, log returns
+ac.ret <- returns(a.close$adj.close)[-1]
+ac.lr <- log(ac.ret + 1)
+
+ac <- tail(a.close, -1)
+ac$logret <- ac.lr
+```
+
+```{r}
+ac %>% ggplot(aes(x=date, y=adj.close)) + geom_line() + ggtitle('Cocoa Futures') + xlab('Date') + ylab('Adjusted Closing Price')
+ac %>% dplyr::filter(date>'2019-02-26')  %>% ggplot(aes(x=date, y=adj.close)) + geom_line() + ggtitle('Cocoa Futures, 2/26/19-2/26/20') + xlab('Date') + ylab('Adjusted Closing Price')
+
+temp <-data.frame(date=tail(ac$date, -1), diffd=diff(ac$adj.close))
+temp %>% dplyr::filter(date>'2019-02-26') %>% ggplot(aes(x=date, y=diffd)) + geom_line() + ggtitle('Differenced Cocoa Futures') + xlab('Date') +ylab('Differenced Closing Price')
+```
+Adjusted closing price
+Strong evidence of autocorrelation in the closing price (stat sig box test)- look at differencing to make stationary
+```{r}
+ac%>% select(adj.close) %>% ggtsdisplay()
+Box.test(ac$adj.close, type='Ljung')
+ndiffs(ac$adj.close)
+```
+Try taking log of the data to  make it stationary
+```{r}
+ac$adj.close %>% log() %>% ggtsdisplay()
+Box.test(log(ac$adj.close))
+ac$adj.close %>% log() %>% ur.kpss() %>% summary()
+# taking the log of the adj closing price does not make it stationary
+```
+
+One day difference - does make it stationary
+```{r}
+ac$adj.close %>% diff() %>% ggtsdisplay()
+Box.test(diff(ac$adj.close))
+ac$adj.close %>% diff() %>% ur.kpss() %>% summary()
+# differenced data is stationary
+```
+Create a full sequence (including weekends) for differencing
+```{r}
+fullseq <- data.frame(date = seq(lubridate::ymd('2000-01-01'),lubridate::ymd('2020-02-26'), by='1 day'))
+ac.s <- left_join(fullseq, ac)
+```
+One week difference - still autocorr
+```{r}
+ac.s$adj.close %>% diff(7) %>% na.omit() %>% ggtsdisplay()
+Box.test(na.omit(diff(ac.s$adj.close, lag = 7)))
+ac.s$adj.close %>% diff(7) %>% ur.kpss() %>% summary()
+#nsdiffs(ac.s$adj.close) Error in nsdiffs(ac.s$adj.close) : Non seasonal data
+```
+
+Train/test split, do 1 month of test so 20 days
+```{r}
+train <- ac %>% dplyr::filter(date<'2020-01-01')
+test <- ac %>% dplyr::filter(date>='2020-01-01')
+```
+
+Time series regression on the adjusted closing price
+```{r}
+ac.train.ts <- ts(train$adj.close, frequency=250)
+lm1 <- tslm(ac.train.ts ~ trend)
+summary(lm1)
+lm1.f <- forecast(lm1, h=38, level = 0)
+accuracy(lm1.f, test$adj.close)
+```
+
+```{r}
+lm2 <- tslm(ac.train.ts ~ trend +I(trend^2))
+summary(lm2)
+lm2.f <- forecast(lm2, h=38, level = 0)
+accuracy(lm2.f, test$adj.close)
+```
+
+```{r}
+lm3 <- tslm(ac.train.ts ~ trend +I(trend^2) + I(trend^3))
+summary(lm3)
+lm3.f <- forecast(lm3, h=38, level = 0)
+accuracy(lm3.f, test$adj.close)
+lm3$residuals %>% ggtsdisplay()
+# lots of structure in those residuals, maybe plot residuals with an ARIMA?
+```
+
+```{r}
+lm4 <- tslm(ac.train.ts ~ trend +I(trend^2) + I(trend^3) + I(trend^4))
+summary(lm4)
+lm4.f <- forecast(lm4, h=38, level = 0)
+accuracy(lm4.f, test$adj.close)
+## whoah this suddenly got way worse, cubic is best
+```
+
+ARIMA of residuals from regression
+```{r}
+OrderGrid2<-expand.grid(0:2, 0:2, 0:2)
+
+out.mat <- matrix(0, nrow=dim(OrderGrid2)[1], ncol=4)
+for (i in 1:dim(OrderGrid2)[1]){
+  m=arima(lm3$residuals, 
+        order=c(OrderGrid2[i,1],OrderGrid2[i,2],OrderGrid2[i,3]))
+  out.mat[i,] <- c(m$aic,
+                  sqrt(mean(m$residuals^2)),
+                  Box.test(m$residuals,10,type='Ljung')$p.value,
+                  Box.test(m$residuals^2,10,type='Ljung')$p.value)
+}
+out.mat <- data.frame(cbind(OrderGrid2,out.mat))
+out.mat[out.mat$X3!=0,]
+```
+best arima is 2,0,1
+```{r}
+lm3.res.arima <- Arima(lm3$residuals, order=c(2,0,1))
+summary(lm3.res.arima)
+
+lm3.res.arima$residuals %>% ggtsdisplay()
+# ersiduals look pretty goos
+lm3.res.arima$residuals^2 %>% ggtsdisplay(lag.max=10)
+# does look like additional autocorr.
+Box.test(lm3.res.arima$residuals, type='Ljung')
+# no autocorr. in residuals
+
+#combine the two models
+afore <- forecast(lm3.res.arima, 38)
+accuracy((lm3.f$mean + afore$mean), test$adj.close)
+# test set accuracy is 357.26
+sqrt(mean((train$adj.close-(lm3.res.arima$fitted + lm3$fitted.values))^2))
+```
+ARIMA/aka random walk
+```{r}
+ac.aa <- auto.arima(train$adj.close)
+summary(ac.aa)
+ac.aa$residuals %>% ggtsdisplay()
+# ersiduals look pretty goos
+Box.test(ac.aa$residuals, type='Ljung')
+# no autocorr. in residuals
+
+apred <- predict(ac.aa, 38)
+accuracy(apred$pred, test$adj.close)
+# this just a random walk
+```
+
+Decomposition - there is no discernable seasonal component so cannot use decomposition
+```{r}
+#ac.stl <- stl(train$adj.close, t.window=250, robust=TRUE)
+```
+
+Smoothing method
+trend, no seasonality
+```{r}
+s2 <- ets(ac.train.ts, model="ZAN", alpha=0.3)
+# relatively slow learner, less dependecy on only the most recent
+summary(s2)
+s2.f <- forecast(s2, h=38, level = 0)
+accuracy(s2.f, test$adj.close)
+
+s2$residuals %>% ggtsdisplay()
+Box.test(s2$residuals, type='Ljung')
+# additive error, no trend, no seasonality
+```
+```{r}
+plotdf <- test
+plotdf$predmean <- lm3.f$mean + afore$mean
+plotdf$smooth <- s2.f$mean
+plotdf$rw <- apred$pred
+
+plotdf2 <- train
+plotdf2$lmar <- lm3$fitted.values + afore$fitted
+plotdf2$smooth <- s2.f$fitted
+plotdf2$rw <- ac.aa$fitted
+#dplyr::filter(plotdf2,date>'2019-02-26')
+#cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+ggplot() + geom_line(data=dplyr::filter(train,date>'2018-02-26'), aes(x=date, y=adj.close), color='black') + 
+  geom_line(data=plotdf, aes(x=date, y=predmean), color='#E69F00') +   # orange
+  geom_line(data=plotdf, aes(x=date, y=smooth), color='#009E73') + #green
+ geom_line(data=plotdf, aes(x=date, y=rw), color='#CC79A7')+ #purple
+  xlab('Date') + ylab('Adjusted Closing Price') + 
+  ggtitle('Forecasted cocoa futures price') + geom_line(data=plotdf, aes(x=date, y=adj.close), linetype=2)
+```
+

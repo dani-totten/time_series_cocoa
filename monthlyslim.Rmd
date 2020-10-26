@@ -1,0 +1,158 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+---
+title: "Untitled"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(forecast)
+library(tidyverse)
+library(fBasics)
+library(fGarch)
+library(TSA)
+library(urca)
+```
+Load and prep data
+```{r}
+CC_F <- data.frame(read_csv("~/Downloads/CC=F.csv"))
+a.close <- data.frame(date=CC_F$Date, adj.close=as.numeric(CC_F[,6]))
+a.close <- a.close[complete.cases(a.close),]
+
+# cut off data to match adjusted closing price
+a.close <- a.close %>% dplyr::filter(date>'2010-01-01')
+ac.m <- a.close %>% group_by(month=lubridate::floor_date(date, "month")) %>% summarize(adj.close = mean(adj.close))
+```
+
+
+```{r}
+ac.m %>% ggplot(aes(x=month, y=adj.close)) + geom_line() + ggtitle('Cocoa Futures') + xlab('month') + ylab('Adjusted Closing Price by Month')
+```
+
+Adjusted closing price
+Strong evidence of autocorrelation in the closing price (stat sig box test)- look at differencing to make stationary
+```{r}
+ac.m%>% select(adj.close) %>% ggtsdisplay()
+Box.test(ac.m$adj.close, type='Ljung')
+ndiffs(ac.m$adj.close)
+#nsdiffs(ac.m$adj.close) Error in nsdiffs(ac.m$adj.close) : Non seasonal data
+```
+```{r}
+ac.m$adj.close %>% diff() %>% ggtsdisplay()
+Box.test(diff(ac.m$adj.close))
+ac.m$adj.close %>% diff() %>% ur.kpss() %>% summary()
+# differenced monthly data is not stationary - needs ARIMA
+```
+Train/test split, do 1 month of test so 20 days
+```{r}
+# el nino years
+ac.m$en <- as.ordered(ifelse((ac.m$month>='2015-06-01'&ac.m$month<='2016-06-01'), 4,
+                  ifelse((ac.m$month>='2011-06-01'&ac.m$month<='2012-04-01'), 2, 
+                         ifelse((ac.m$month>='2018-09-01'&ac.m$month<='2019-07-01'), 1, 0))))
+
+# la nina years
+ac.m$ln <- as.ordered(ifelse((ac.m$month>='2010-06-01'&ac.m$month<='2011-06-01'), 3,
+                         ifelse((ac.m$month>='2016-07-01'&ac.m$month<='2017-01-01'), 1,
+                                ifelse((ac.m$month>='2017-09-01'&ac.m$month<='2018-04-01'), 1,0))))
+
+ac.m$en2 <- as.factor(ifelse((ac.m$month>='2015-06-01'&ac.m$month<='2016-06-01'), 1,0))
+ac.m$ln2 <- as.factor(ifelse((ac.m$month>='2010-06-01'&ac.m$month<='2011-06-01'), 1,0))
+
+train <- head(ac.m, 116)
+test <- tail(ac.m, 6)
+
+# create data frames to add forecasts and fitetd models to
+plotdf <- test
+plotdf2 <- train
+```
+
+ARIMA
+```{r}
+ac.m.aa <- auto.arima(train$adj.close)
+summary(ac.m.aa)
+ac.m.aa$residuals %>% ggtsdisplay()
+ac.m.aa$residuals^2 %>% ggtsdisplay()
+Box.test(ac.m.aa$residuals, type='Ljung')
+Box.test(ac.m.aa$residuals^2, type='Ljung')
+# there is no autocorr in squared residuals
+
+apred <- predict(ac.m.aa, 6)
+accuracy(apred$pred, test$adj.close)
+# differenced auto regressive model
+
+plotdf$aa <- apred$pred
+plotdf2$aa <- ac.m.aa$fitted
+```
+
+Intervention analysis - el nino peak nov 2016
+```{r}
+# el nino peak
+ac.m$enpeak <- ifelse(ac.m$month=='2016-11-01',1,0)
+arimax(ac.m$adj.close, order=c(0,1,1), xtransf=ac.m$enpeak, transfer=list(c(1,0)))
+```
+Dynamic Regression
+```{r}
+dr <- lm(adj.close~en + ln, data=train)
+summary(dr)
+# stronger years are the only significant ones, only use those with a binary flag
+```
+
+```{r}
+dr2 <- lm(adj.close~en2 + ln2, data=train)
+summary(dr2)
+# determine structure of ARIMA
+dr.aa2 <- auto.arima(train$adj.close, xreg=cbind(train$ln2,train$en2))
+checkresiduals(dr.aa2)
+dr.aa2$residuals %>% ggtsdisplay()
+dr2.ln <- forecast(dr.aa2, xreg = cbind(rep(1,6), rep(0,6)), h=6)
+dr2.en <- forecast(dr.aa2, xreg = cbind(rep(0,6), rep(1,6)), h=6)
+dr2.na <- forecast(dr.aa2, xreg = cbind(rep(0,6), rep(0,6)), h=6)
+accuracy(dr2.na$mean, test$adj.close)
+
+plotdf$dr2.ln <- dr2.ln$mean
+plotdf$dr2.en <- dr2.en$mean
+plotdf$dr2.na <- dr2.na$mean
+plotdf2$dr2.aa <- dr.aa2$fitted
+```
+neural network
+```{r}
+nn2 <- nnetar(train$adj.close, repeats=40, p=1, xreg=cbind(train$ln,train$en), size=10)
+nn2.fore.el <- forecast(nn2, h=6, xreg = cbind(rep(0,6), rep(1,6)))
+nn2.fore.ln <- forecast(nn2, h=6, xreg = cbind(rep(1,6), rep(0,6)))
+nn2.fore.na <- forecast(nn2, h=6, xreg = cbind(rep(0,6), rep(0,6)))
+accuracy(nn2.fore.el, test$adj.close)
+accuracy(nn2.fore.ln, test$adj.close)
+accuracy(nn2.fore.na, test$adj.close)
+Box.test(test$adj.close - nn2.fore.na$mean)
+plotdf$nn.el <- nn2.fore.el$mean
+plotdf$nn.ln <- nn2.fore.ln$mean
+plotdf$nn.na <- nn2.fore.na$mean
+```
+
+c("#999999", "#E69F00", "#56B4E9", "#009E73","#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```{r}
+ggplot() + geom_line(data=dplyr::filter(ac.m, month>'2010-01-01'&month<='2019-09-01'), aes(x=month, y=adj.close), color='black') +
+  geom_line(data=plotdf, aes(x=month, y=nn.el), color='#D55E00') + #neural net en is orange
+  geom_line(data=plotdf, aes(x=month, y=nn.ln), color='#009E73') + #teal
+  geom_line(data=plotdf, aes(x=month, y=nn.na), color='#CC79A7') + #pink
+  xlab('') + ylab('Monthly mean adjusted closing price') + ggtitle('Forecasted cocoa futures price by month - neural network') + geom_line(data=plotdf, aes(x=month, y=adj.close), linetype=2)
+
+ggplot() + geom_line(data=dplyr::filter(ac.m, month>'2010-01-01'&month<='2019-09-01'), aes(x=month, y=adj.close), color='black') + 
+  #geom_line(data=plotdf, aes(x=month, y=aa), color='') + #forecast auto arima purple/pink
+  geom_line(data=plotdf, aes(x=month, y=dr2.na), color='#D55E00') + #orange
+  geom_line(data=plotdf, aes(x=month, y=dr2.ln), color='#009E73') + #la nina teal
+  geom_line(data=plotdf, aes(x=month, y=dr2.en), color='#CC79A7') + #pink
+  xlab('') + ylab('Monthly mean adjusted closing price') + ggtitle('Forecasted cocoa futures price by month - dynamic regression') + geom_line(data=plotdf, aes(x=month, y=adj.close), linetype=2)
+
+ggplot() + geom_line(data=dplyr::filter(ac.m, month>'2010-01-01'&month<='2019-09-01'), aes(x=month, y=adj.close), color='black') +
+  geom_line(data=plotdf, aes(x=month, y=nn.na), color='#CC79A7') + 
+    geom_line(data=plotdf, aes(x=month, y=dr2.na), color='#D55E00') + #orange
+  xlab('') + ylab('Monthly mean adjusted closing price') + ggtitle('Forecasted cocoa futures price by month - no weather events') + geom_line(data=plotdf, aes(x=month, y=adj.close), linetype=2)
+
+```
+

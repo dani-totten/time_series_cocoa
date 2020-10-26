@@ -61,4 +61,4 @@ The ARIMA(1,1,0) aka first-differenced autoregressive model adequately accounted
 
 ![](https://github.com/dani-totten/time_series_cocoa/blob/main/monthly_forecast_edit.png)
 
-*This plot shows the forecasted neural network against the observed mean adjusted closing price during the testing period for 3 cases: no weather patterns (orange), El Niño (pink) and la Niña (teal)*
+*Forecasted neural network against the observed mean adjusted closing price during the testing period for 3 cases: no weather patterns (orange), El Niño (pink) and la Niña (teal)*

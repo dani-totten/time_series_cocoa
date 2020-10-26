@@ -58,3 +58,4 @@ Methods for average monthly closing price
 The ARIMA(1,1,0) aka first-differenced autoregressive model adequately accounted for all residual autocorrelation (based on Box-Ljung test of residuals) with moderate training set RMSE, but was poor at predicting the test set. Since regression analysis showed a statistically significant relationship between prices and El Nino/La Nina months (El Nino causing slight increase in price, La Nina causing slight decrease in price). Layering these two models had almost no impact on RMSE in the trianing set, but had a slightly higher RMSE in the test set. A neural network that included El Nino/La Nina was overall better than either of the previous two models with lower training and test RMSE.
 
 ![](https://github.com/dani-totten/time_series_cocoa/blob/main/monthly_forecast.png)
+
